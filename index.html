@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>stu_25th_Birthday</title>
+<title>jsl_25th_Birthday</title>
 <style>
     * {
         box-sizing: border-box;
@@ -30,20 +30,21 @@
 
     .title-wrap {
         position: absolute;
-        top: 80px;
+        top: clamp(20px, 6vh, 80px);
         left: 50%;
         transform: translateX(-50%);
         z-index: 10;
         width: 100%;
         text-align: center;
         pointer-events: none;
+        padding: 0 12px;
     }
 
     .title-block {
         display: inline-flex;
         flex-direction: column;
         align-items: center;
-        gap: 14px;
+        gap: clamp(6px, 1.5vh, 14px);
         animation: breathing 3.8s ease-in-out infinite;
     }
 
@@ -56,14 +57,13 @@
     .title-line {
         font-family: "Courier New", monospace;
         font-weight: 900;
-        font-size: clamp(65px, 2.6vw, 38px);
-        letter-spacing: 2px;
+        font-size: clamp(28px, 7vw, 65px);
+        letter-spacing: clamp(0.5px, 0.35vw, 2px);
         text-transform: uppercase;
-        line-height: 0.8;
+        line-height: 0.9;
         white-space: nowrap;
     }
 
-    /* 单层黑框，像图2那样 */
     .title-line span {
         display: inline-block;
         text-shadow:
@@ -80,9 +80,9 @@
         position: absolute;
         z-index: 12;
         color: #ffffff;
-        font-size: clamp(30px, 6vw, 78px);
+        font-size: clamp(28px, 8vw, 78px);
         font-weight: 900;
-        min-width: 90px;
+        min-width: clamp(56px, 12vw, 90px);
         text-align: center;
         text-shadow:
             0 0 6px rgba(255,255,255,1),
@@ -90,21 +90,26 @@
             0 0 30px rgba(255,220,130,0.9),
             0 0 46px rgba(255,200,100,0.75);
         pointer-events: none;
+        transform: translateX(-50%);
     }
 
     .bottom {
         position: absolute;
         left: 50%;
-        bottom: 42px;
+        bottom: clamp(18px, 4vh, 42px);
         transform: translateX(-50%);
         z-index: 20;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        padding: 0 16px;
     }
 
     button {
         border: none;
         border-radius: 999px;
-        padding: 14px 30px;
-        font-size: 18px;
+        padding: clamp(12px, 1.8vh, 14px) clamp(22px, 5vw, 30px);
+        font-size: clamp(15px, 2.3vw, 18px);
         font-weight: 700;
         cursor: pointer;
         color: white;
@@ -114,6 +119,8 @@
             0 10px 24px rgba(0,0,0,0.18);
         animation: pulse 1.8s infinite;
         transition: transform 0.2s ease, opacity 0.2s ease, background 0.3s ease;
+        white-space: nowrap;
+        max-width: 90vw;
     }
 
     button:hover {
@@ -134,6 +141,20 @@
         0% { transform: scale(1); }
         50% { transform: scale(1.08); }
         100% { transform: scale(1); }
+    }
+
+    @media (max-width: 480px) {
+        .title-line span {
+            text-shadow:
+                2px 0 #111, -2px 0 #111, 0 2px #111, 0 -2px #111,
+                2px 2px #111, -2px -2px #111, 2px -2px #111, -2px 2px #111;
+        }
+
+        button {
+            box-shadow:
+                0 0 0 3px #111,
+                0 8px 18px rgba(0,0,0,0.16);
+        }
     }
 </style>
 </head>
@@ -163,6 +184,8 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const countdownEl = document.getElementById("countdown");
 const btn = document.getElementById("btn");
+const titleWrap = document.querySelector(".title-wrap");
+const bottomWrap = document.querySelector(".bottom");
 
 let W = window.innerWidth;
 let H = window.innerHeight;
@@ -175,6 +198,43 @@ let countdownRunning = false;
 let confetti = [];
 let smokes = [];
 let stars = [];
+
+/* =========================
+   场景自适应参数
+========================= */
+function getSceneMetrics() {
+    const minSide = Math.min(W, H);
+    const isMobile = W <= 768;
+
+    const s = Math.max(4, Math.min(7, Math.floor(minSide / 120)));
+
+    const titleRect = titleWrap.getBoundingClientRect();
+    const bottomRect = bottomWrap.getBoundingClientRect();
+
+    const safeTop = titleRect.bottom + (isMobile ? 28 : 36);
+    const safeBottom = bottomRect.top - (isMobile ? 120 : 140);
+
+    let cy = H * (isMobile ? 0.60 : 0.63);
+
+    if (cy < safeTop + 60) cy = safeTop + 60;
+    if (cy > safeBottom) cy = safeBottom;
+
+    const cx = W / 2;
+
+    const candleBaseY = cy - 22 * s;
+    const candle1X = cx - 6 * s;
+    const candle2X = cx + 2 * s;
+
+    return {
+        s,
+        cx,
+        cy,
+        candleBaseY,
+        candle1X,
+        candle2X,
+        titleBottom: titleRect.bottom
+    };
+}
 
 function resizeCanvas() {
     W = window.innerWidth;
@@ -207,13 +267,21 @@ function drawPattern(pattern, sx, sy, size, colorMap) {
     }
 }
 
+/* =========================
+   倒数位置：放在蜡烛上方中间
+   不碰标题，不碰蜡烛
+========================= */
 function positionCountdown() {
-    const s = Math.max(4, Math.min(7, Math.floor(Math.min(W, H) / 120)));
-    const cakeCenterX = W / 2;
-    const cakeCenterY = H / 2 + 80;
-    const cakeWidth = 52 * s;
-    countdownEl.style.left = `${cakeCenterX + cakeWidth / 2 + 44}px`;
-    countdownEl.style.top = `${cakeCenterY - 12}px`;
+    const { s, candle1X, candle2X, candleBaseY, titleBottom } = getSceneMetrics();
+
+    const candleCenterX = ((candle1X + 2 * s) + (candle2X + 2 * s)) / 2;
+
+    const desiredTop = candleBaseY - 12 * s - 52;
+    const minTop = titleBottom + 20;
+    const finalTop = Math.max(desiredTop, minTop);
+
+    countdownEl.style.left = `${candleCenterX}px`;
+    countdownEl.style.top = `${finalTop}px`;
 }
 
 /* =========================
@@ -253,7 +321,7 @@ function drawStars() {
 }
 
 /* =========================
-   蛋糕：参考图造型
+   蛋糕
 ========================= */
 function drawCake(cx, cy, s) {
     const outline = "#111111";
@@ -265,7 +333,6 @@ function drawCake(cx, cy, s) {
     const hl1 = "#9b6840";
     const hl2 = "#b57b4f";
 
-    // 下层
     rectBlock(cx - 26*s, cy + 1*s, 52, 18, s, outline);
     rectBlock(cx - 25*s, cy + 2*s, 50, 16, s, cakeLight);
     rectBlock(cx - 25*s, cy + 8*s, 50, 7, s, cakeMid);
@@ -283,7 +350,6 @@ function drawCake(cx, cy, s) {
         rectBlock(cx + d.x*s, cy + (1 + d.h - 1)*s, 2, 1, s, creamShade);
     });
 
-    // 上层
     rectBlock(cx - 16*s, cy - 12*s, 32, 13, s, outline);
     rectBlock(cx - 15*s, cy - 11*s, 30, 11, s, cakeLight);
     rectBlock(cx - 15*s, cy - 7*s, 30, 5, s, cakeMid);
@@ -308,7 +374,7 @@ function drawCake(cx, cy, s) {
 }
 
 /* =========================
-   细长蜡烛
+   蜡烛
 ========================= */
 function drawSlimCandle(x, y, s, bodyColor) {
     const colorMap = {
@@ -427,16 +493,9 @@ function drawScene() {
 
     drawStars();
 
-    const s = Math.max(4, Math.min(7, Math.floor(Math.min(W, H) / 120)));
-    const cx = W / 2;
-    const cy = H / 2 + 80;
+    const { s, cx, cy, candleBaseY, candle1X, candle2X } = getSceneMetrics();
 
     drawCake(cx, cy, s);
-
-    // 蜡烛贴在上层蛋糕顶面上
-    const candleBaseY = cy - 22 * s;
-    const candle1X = cx - 6 * s;
-    const candle2X = cx + 2 * s;
 
     drawSlimCandle(candle1X, candleBaseY, s, "#4eb0ff");
     drawSlimCandle(candle2X, candleBaseY, s, "#ff5c8a");
@@ -453,6 +512,7 @@ function drawScene() {
     drawSmoke();
     drawConfetti();
 
+    positionCountdown();
     requestAnimationFrame(drawScene);
 }
 
@@ -473,23 +533,20 @@ function startCountdown() {
 
     let count = 5;
     countdownEl.textContent = count;
+    positionCountdown();
 
     const timer = setInterval(() => {
         count--;
 
         if (count > 0) {
             countdownEl.textContent = count;
+            positionCountdown();
         } else {
             clearInterval(timer);
             countdownEl.textContent = "";
             candleLit = false;
 
-            const s = Math.max(4, Math.min(7, Math.floor(Math.min(W, H) / 120)));
-            const cx = W / 2;
-            const cy = H / 2 + 80;
-            const candleBaseY = cy - 22 * s;
-            const candle1X = cx - 6 * s;
-            const candle2X = cx + 2 * s;
+            const { s, candleBaseY, candle1X, candle2X } = getSceneMetrics();
 
             createSmoke(candle1X + 2*s, candleBaseY - 2*s, s);
             createSmoke(candle2X + 2*s, candleBaseY - 2*s, s);
